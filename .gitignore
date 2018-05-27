@@ -1,0 +1,6 @@
+*.o
+*.elf
+*.bin
+*.exe
+*.DS_Store
+build/
