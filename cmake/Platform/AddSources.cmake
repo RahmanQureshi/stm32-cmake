@@ -1,6 +1,14 @@
-set(STM32_SDK_PATH "${CMAKE_CURRENT_LIST_DIR}/../../stm32cube/stm32cubef4")
+set(_add_sources_list_dir ${CMAKE_CURRENT_LIST_DIR})
 
-function(_generate_startup_library BOARD DEVICE)
+# Sets STM32_SDK_PATH and STM32_BOARDS_PATH in the cache given the device.
+function(_set_paths DEVICE)
+    _get_series(SERIES ${DEVICE})
+    _get_line(LINE ${DEVICE})
+    set(STM32_SDK_PATH ${_add_sources_list_dir}/../../stm32cube/stm32cube${SERIES} CACHE FILEPATH "Path to HAL and CMSIS libraries")
+    set(STM32_BOARDS_PATH ${_add_sources_list_dir}/../../stm32cube/boards CACHE FILEPATH "Path to board specific files")
+endfunction(_set_paths)
+
+function(_generate_cmsis_library BOARD DEVICE)
     _get_series(SERIES ${DEVICE})
     _get_line(LINE ${DEVICE})
     add_definitions(-D${LINE})
@@ -10,11 +18,25 @@ function(_generate_startup_library BOARD DEVICE)
     set(CMSIS_INCLUDE_DIRS
         ${STM32_SDK_PATH}/cmsis/include
         ${STM32_SDK_PATH}/cmsis/device/include)
-    add_library(hal_startup
+    add_library(cmsis
         ${CMSIS_SRCS})
-    target_include_directories(hal_startup
+    target_include_directories(cmsis
         PUBLIC ${CMSIS_INCLUDE_DIRS})
-endfunction(_generate_startup_library)
+endfunction(_generate_cmsis_library)
+
+function(_generate_hal_libraries BOARD DEVICE)
+    _get_series(SERIES ${DEVICE})
+    _get_line(LINE ${DEVICE})
+    foreach(driver cortex flash gpio spi i2c adc can cec crc dac dma rcc rtc sd uart usart)
+        add_library(hal_${driver} STATIC
+            ${STM32_SDK_PATH}/hal_drivers/src/stm32${SERIES}xx_hal_${driver}.c)
+        target_include_directories(hal_${driver}
+            PUBLIC ${STM32_SDK_PATH}/hal_drivers/include
+            PUBLIC ${STM32_BOARDS_PATH}/${BOARD}
+            PUBLIC ${STM32_SDK_PATH}/cmsis/device/include
+            PUBLIC ${STM32_SDK_PATH}/cmsis/include)
+    endforeach(driver)
+endfunction(_generate_hal_libraries)
 
 # Returns the device series e.g. F1, F2, F3, or F4
 # Parameters:
