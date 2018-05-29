@@ -1,6 +1,7 @@
 set(_add_sources_list_dir ${CMAKE_CURRENT_LIST_DIR})
 
 # Sets STM32_SDK_PATH and STM32_BOARDS_PATH in the cache given the device.
+# Also extracts the series and line of the device into ${SERIES} and ${LINE}
 function(_set_paths DEVICE)
     _get_series(SERIES ${DEVICE})
     _get_line(LINE ${DEVICE})
@@ -27,6 +28,13 @@ endfunction(_generate_cmsis_library)
 function(_generate_hal_libraries BOARD DEVICE)
     _get_series(SERIES ${DEVICE})
     _get_line(LINE ${DEVICE})
+    add_library(hal_init STATIC
+        ${STM32_SDK_PATH}/hal_drivers/src/stm32${SERIES}xx_hal.c)
+    target_include_directories(hal_init
+        PUBLIC ${STM32_SDK_PATH}/hal_drivers/include
+        PUBLIC ${STM32_BOARDS_PATH}/${BOARD}
+        PUBLIC ${STM32_SDK_PATH}/cmsis/device/include
+        PUBLIC ${STM32_SDK_PATH}/cmsis/include)
     foreach(driver cortex flash gpio spi i2c adc can cec crc dac dma rcc rtc sd uart usart)
         add_library(hal_${driver} STATIC
             ${STM32_SDK_PATH}/hal_drivers/src/stm32${SERIES}xx_hal_${driver}.c)
@@ -43,8 +51,8 @@ endfunction(_generate_hal_libraries)
 #   DEVICE - e.g. STM32F11RE
 #   VAR_NAME - variable name to set
 function(_get_series VAR_NAME EVICE)
-    string(REGEX MATCH F[123456789] SERIES ${DEVICE})
-    set(${VAR_NAME} ${SERIES} PARENT_SCOPE)
+    string(REGEX MATCH [LF][123456789] SERIES ${DEVICE})
+    set(${VAR_NAME} ${SERIES} CACHE STRING "STM32 Device Series")
 endfunction(_get_series)
 
 # Returns the device line. e.g. STM32F411xE
@@ -53,6 +61,6 @@ endfunction(_get_series)
 #   VAR_NAME - variable name to set
 function(_get_line VAR_NAME DEVICE)
     if(${DEVICE} STREQUAL STM32F411RE)
-        set(${VAR_NAME} STM32F411xE PARENT_SCOPE)
+        set(${VAR_NAME} STM32F411xE CACHE STRING "STM32 Line")
     endif(${DEVICE} STREQUAL STM32F411RE)
 endfunction(_get_line)
