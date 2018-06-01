@@ -1,18 +1,21 @@
 set(_add_sources_list_dir ${CMAKE_CURRENT_LIST_DIR})
 
-# Sets STM32_SDK_PATH and STM32_BOARDS_PATH in the cache given the device.
-# Also extracts the series and line of the device into ${SERIES} and ${LINE}
-function(_set_paths DEVICE)
-    _get_series(SERIES ${DEVICE})
-    _get_line(LINE ${DEVICE})
+# This function initializes global variables
+function(_initialize BOARD DEVICE)
+    _set_series(${DEVICE})
+    _set_line(${DEVICE})
+    _set_openocd_target(${DEVICE})
+    set(BOARD ${BOARD} CACHE STRING "Board")
     set(STM32_SDK_PATH ${_add_sources_list_dir}/../../stm32cube/stm32cube${SERIES} CACHE FILEPATH "Path to HAL and CMSIS libraries")
     set(STM32_BOARDS_PATH ${_add_sources_list_dir}/../../stm32cube/boards CACHE FILEPATH "Path to board specific files")
-endfunction(_set_paths)
+endfunction(_initialize)
+
+function(_add_definitions)
+    add_definitions(-D${LINE})
+    add_definitions(-D${BOARD})
+endfunction(_add_definitions)
 
 function(_generate_cmsis_library BOARD DEVICE)
-    _get_series(SERIES ${DEVICE})
-    _get_line(LINE ${DEVICE})
-    add_definitions(-D${LINE})
     set(CMSIS_SRCS
         ${STM32_SDK_PATH}/cmsis/device/src/startup/startup_${LINE}.s
         ${STM32_SDK_PATH}/cmsis/device/src/system_stm32${SERIES}xx.c)
@@ -26,8 +29,6 @@ function(_generate_cmsis_library BOARD DEVICE)
 endfunction(_generate_cmsis_library)
 
 function(_generate_hal_libraries BOARD DEVICE)
-    _get_series(SERIES ${DEVICE})
-    _get_line(LINE ${DEVICE})
     add_library(hal_init STATIC
         ${STM32_SDK_PATH}/hal_drivers/src/stm32${SERIES}xx_hal.c)
     target_include_directories(hal_init
@@ -46,21 +47,31 @@ function(_generate_hal_libraries BOARD DEVICE)
     endforeach(driver)
 endfunction(_generate_hal_libraries)
 
-# Returns the device series e.g. F1, F2, F3, or F4
+# This is not a good way to set these parameters
+# But I'm not trying to support every device,
+# it's a fine hack for now
+
+# Sets the device series e.g. F1, F2, F3, or F4
 # Parameters:
 #   DEVICE - e.g. STM32F11RE
-#   VAR_NAME - variable name to set
-function(_get_series VAR_NAME EVICE)
+function(_set_series DEVICE)
     string(REGEX MATCH [LF][123456789] SERIES ${DEVICE})
-    set(${VAR_NAME} ${SERIES} CACHE STRING "STM32 Device Series")
-endfunction(_get_series)
+    set(SERIES ${SERIES} CACHE STRING "STM32 Device Series")
+endfunction(_set_series)
 
-# Returns the device line. e.g. STM32F411xE
+# Sets the device line e.g. STM32F411xE
 # Parameters:
 #   DEVICE - e.g. STM32F411RE
-#   VAR_NAME - variable name to set
-function(_get_line VAR_NAME DEVICE)
+function(_set_line DEVICE)
     if(${DEVICE} STREQUAL STM32F411RE)
-        set(${VAR_NAME} STM32F411xE CACHE STRING "STM32 Line")
+        set(LINE STM32F411xE CACHE STRING "STM32 Line")
     endif(${DEVICE} STREQUAL STM32F411RE)
-endfunction(_get_line)
+endfunction(_set_line)
+
+# Sets the name of the configuration file describing
+# the target to openocd
+function(_set_openocd_target DEVICE)
+    if(${DEVICE} STREQUAL STM32F411RE)
+        set(OPENOCD_TARGET stm32f4x CACHE STRING "STM32 Line")
+    endif(${DEVICE} STREQUAL STM32F411RE)
+endfunction(_set_openocd_target)
